@@ -39,12 +39,17 @@ class DiscordAPIv10:
     def __init__(self, proxy: Optional[str] = None):
         self.session = requests.Session()
         self.fingerprint = None
-        self.user_agent = UserAgent(use_cache_server=False).random
+        try:
+            self.user_agent = UserAgent().random
+        except Exception:
+            # Fallback if UserAgent fails
+            self.user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         
         if proxy:
+            proxy_url = f'http://{proxy}' if '://' not in proxy else proxy
             self.session.proxies.update({
-                'http': f'http://{proxy}',
-                'https': f'http://{proxy}'
+                'http': proxy_url,
+                'https': proxy_url
             })
         
         self._setup_headers()
@@ -67,11 +72,17 @@ class DiscordAPIv10:
                 timeout=10
             )
             if response.status_code == 200:
-                self.fingerprint = response.json().get('fingerprint')
-                print(f"{Fore.GREEN}[+] Fingerprint: {self.fingerprint[:20]}...{Style.RESET_ALL}")
-                return self.fingerprint
+                data = response.json()
+                self.fingerprint = data.get('fingerprint')
+                if self.fingerprint:
+                    print(f"{Fore.GREEN}[+] Fingerprint: {self.fingerprint[:20]}...{Style.RESET_ALL}")
+                    return self.fingerprint
+                else:
+                    print(f"{Fore.YELLOW}[!] No fingerprint in response{Style.RESET_ALL}")
+            else:
+                print(f"{Fore.YELLOW}[!] Status: {response.status_code}{Style.RESET_ALL}")
         except Exception as e:
-            print(f"{Fore.RED}[!] Error: {e}{Style.RESET_ALL}")
+            print(f"{Fore.RED}[!] Fingerprint Error: {e}{Style.RESET_ALL}")
         return None
     
     def register(self, email: str, username: str, password: str) -> Optional[Dict]:
@@ -100,13 +111,21 @@ class DiscordAPIv10:
             if response.status_code == 201:
                 result = response.json()
                 token = result.get('token')
-                print(f"{Fore.GREEN}[+] SUCCESS! Token: {token[:40]}...{Style.RESET_ALL}")
-                return result
+                if token:
+                    print(f"{Fore.GREEN}[+] SUCCESS! Token: {token[:40]}...{Style.RESET_ALL}")
+                    return result
+                else:
+                    print(f"{Fore.RED}[!] No token in response{Style.RESET_ALL}")
+                    return None
             else:
-                print(f"{Fore.RED}[!] Failed: {response.status_code} - {response.text[:100]}{Style.RESET_ALL}")
+                try:
+                    error_text = response.json().get('message', response.text[:100])
+                except:
+                    error_text = response.text[:100]
+                print(f"{Fore.RED}[!] Failed: {response.status_code} - {error_text}{Style.RESET_ALL}")
                 return None
         except Exception as e:
-            print(f"{Fore.RED}[!] Error: {e}{Style.RESET_ALL}")
+            print(f"{Fore.RED}[!] Registration Error: {e}{Style.RESET_ALL}")
             return None
 
 
@@ -175,10 +194,12 @@ class AccountGenerator:
             return
         print(f"\n{Fore.CYAN}[=] Generated {len(self.accounts)} Accounts{Style.RESET_ALL}")
         for i, acc in enumerate(self.accounts, 1):
+            token = acc.get('token', 'N/A')
+            token_display = f"{token[:40]}..." if token and len(str(token)) > 40 else token
             print(f"\n{Fore.YELLOW}[{i}]{Style.RESET_ALL}")
             print(f"  Email: {acc['email']}")
             print(f"  Username: {acc['username']}")
-            print(f"  Token: {acc['token'][:40]}...")
+            print(f"  Token: {token_display}")
 
 
 def main():
