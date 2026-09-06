@@ -113,4 +113,61 @@ class hCaptchaSolver:
                     print(f"{Fore.YELLOW}[*] Got {len(captcha_data['tasklist'])} tasks to solve{Style.RESET_ALL}")
                     
                     # Solve tasks
-                    answers = {}\n                    for task in captcha_data['tasklist']:\n                        question = task.get('datapoint_text', {}).get('en', '')\n                        if question:\n                            answer = AIReplier.get_answer(question)\n                            if answer:\n                                answers[task['task_key']] = {'text': answer}\n                                print(f"{Fore.GREEN}[+] Solved: {question} -> {answer}{Style.RESET_ALL}")\n                                time.sleep(random.uniform(0.5, 1.5))\n                    \n                    if answers:\n                        # Submit answers\n                        submit_payload = {\n                            'answers': answers,\n                            'c': json.dumps(captcha_data.get('c', {})),\n                            'job_mode': captcha_data.get('request_type', ''),\n                            'serverdomain': 'discord.com',\n                            'sitekey': sitekey,\n                            'v': 'b73e8e0a8c61'\n                        }\n                        \n                        submit_response = self.session.post(\n                            f'https://api.hcaptcha.com/checkcaptcha/{sitekey}/{captcha_data.get(\"key\", \"\")}',\n                            json=submit_payload,\n                            timeout=15\n                        )\n                        \n                        if submit_response.status_code == 200:\n                            result = submit_response.json()\n                            if 'generated_pass_UUID' in result:\n                                token = result['generated_pass_UUID']\n                                print(f"{Fore.GREEN}[+] CAPTCHA Solved! Token: {token[:30]}...{Style.RESET_ALL}")\n                                return token\n            \n            # Fallback: generate random token\n            import uuid\n            token = str(uuid.uuid4())\n            print(f"{Fore.YELLOW}[!] Using fallback token: {token[:30]}...{Style.RESET_ALL}")\n            return token\n            \n        except Exception as e:\n            print(f"{Fore.YELLOW}[!] Solver error: {e}{Style.RESET_ALL}")\n            import uuid\n            return str(uuid.uuid4())\n    \n    def solve(self, captcha_data: dict) -> Optional[str]:\n        \"\"\"Solve using captcha data from Discord error\"\"\"\n        rqtoken = captcha_data.get('captcha_rqtoken')\n        rqdata = captcha_data.get('captcha_rqdata')\n        sitekey = captcha_data.get('captcha_sitekey')\n        session_id = captcha_data.get('captcha_session_id')\n        \n        if not all([rqtoken, rqdata, sitekey, session_id]):\n            print(f"{Fore.RED}[!] Missing captcha data{Style.RESET_ALL}")\n            import uuid\n            return str(uuid.uuid4())\n        \n        return self.solve_from_token(rqtoken, rqdata, sitekey, session_id)
+                    answers = {}
+                    for task in captcha_data['tasklist']:
+                        question = task.get('datapoint_text', {}).get('en', '')
+                        if question:
+                            answer = AIReplier.get_answer(question)
+                            if answer:
+                                answers[task['task_key']] = {'text': answer}
+                                print(f"{Fore.GREEN}[+] Solved: {question} -> {answer}{Style.RESET_ALL}")
+                                time.sleep(random.uniform(0.5, 1.5))
+                    
+                    if answers:
+                        # Submit answers
+                        submit_payload = {
+                            'answers': answers,
+                            'c': json.dumps(captcha_data.get('c', {})),
+                            'job_mode': captcha_data.get('request_type', ''),
+                            'serverdomain': 'discord.com',
+                            'sitekey': sitekey,
+                            'v': 'b73e8e0a8c61'
+                        }
+                        
+                        submit_response = self.session.post(
+                            f'https://api.hcaptcha.com/checkcaptcha/{sitekey}/{captcha_data.get("key", "")}',
+                            json=submit_payload,
+                            timeout=15
+                        )
+                        
+                        if submit_response.status_code == 200:
+                            result = submit_response.json()
+                            if 'generated_pass_UUID' in result:
+                                token = result['generated_pass_UUID']
+                                print(f"{Fore.GREEN}[+] CAPTCHA Solved! Token: {token[:30]}...{Style.RESET_ALL}")
+                                return token
+            
+            # Fallback: generate random token
+            import uuid
+            token = str(uuid.uuid4())
+            print(f"{Fore.YELLOW}[!] Using fallback token: {token[:30]}...{Style.RESET_ALL}")
+            return token
+            
+        except Exception as e:
+            print(f"{Fore.YELLOW}[!] Solver error: {e}{Style.RESET_ALL}")
+            import uuid
+            return str(uuid.uuid4())
+    
+    def solve(self, captcha_data: dict) -> Optional[str]:
+        """Solve using captcha data from Discord error"""
+        rqtoken = captcha_data.get('captcha_rqtoken')
+        rqdata = captcha_data.get('captcha_rqdata')
+        sitekey = captcha_data.get('captcha_sitekey')
+        session_id = captcha_data.get('captcha_session_id')
+        
+        if not all([rqtoken, rqdata, sitekey, session_id]):
+            print(f"{Fore.RED}[!] Missing captcha data{Style.RESET_ALL}")
+            import uuid
+            return str(uuid.uuid4())
+        
+        return self.solve_from_token(rqtoken, rqdata, sitekey, session_id)
